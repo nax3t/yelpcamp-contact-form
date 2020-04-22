@@ -6,6 +6,9 @@ const { isLoggedIn } = require('../middleware');
 // Set your secret key. Remember to switch to your live secret key in production!
 // See your keys here: https://dashboard.stripe.com/account/apikeys
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// require sendgrid/mail
+const sgMail = require('@sendgrid/mail');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 //root route
 router.get("/", function(req, res){
@@ -98,6 +101,41 @@ router.post('/pay', isLoggedIn, async (req, res) => {
         res.send({ error: e.message });
       }
     }
+});
+
+// GET /contact
+router.get('/contact', isLoggedIn, (req, res) => {
+  res.render('contact');
+});
+
+// POST /contact
+router.post('/contact', async (req, res) => {
+  let { name, email, message } = req.body;
+  name = req.sanitize(name);
+  email = req.sanitize(email);
+  message = req.sanitize(message);
+  const msg = {
+    to: 'learntocodeinfo@gmail.com',
+    from: email,
+    subject: `YelpCamp Contact Form Submission from ${name}`,
+    text: message,
+    html: `
+    <h1>Hi there, this email is from, ${name}</h1>
+    <p>${message}</p>
+    `,
+  };
+  try {
+    await sgMail.send(msg);
+    req.flash('success', 'Thank you for your email, we will get back to you shortly.');
+    res.redirect('/contact');
+  } catch (error) {
+    console.error(error);
+    if (error.response) {
+      console.error(error.response.body)
+    }
+    req.flash('error', 'Sorry, something went wrong, please contact admin@website.com');
+    res.redirect('back');
+  }
 });
 
 module.exports = router;
